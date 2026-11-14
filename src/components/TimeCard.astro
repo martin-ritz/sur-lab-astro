@@ -4,7 +4,7 @@ import Switch from "./Switch.astro";
 
 <section>
   <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
-    <p class="text-muted">Right now where you are:</p>
+    <p class="text-muted">Right now where you are, <strong data-home-name class="font-semibold text-fg"></strong></p>
     <div data-big-clock
       class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
       <p data-big-time>
@@ -127,16 +127,17 @@ import Switch from "./Switch.astro";
   startSync(); // measure now, then every 15 minutes and when the tab comes back
 
   // ---------- Home time zone ----------
-// Runs in the visitor's browser, so it's THEIR device's time zone (a VPN doesn't change it)
-const homeTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // "Europe/Prague"
+  // Runs in the visitor's browser, so it's THEIR device's time zone (a VPN doesn't change it)
+  const homeTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // "Europe/Prague"
 
-const homeName = document.querySelector<HTMLElement>("[data-home-name]");
-if (homeName) {
-  homeName.textContent =
-    new Intl.DateTimeFormat("en-GB", { timeZone: homeTz, timeZoneName: "longGeneric" })
-      .formatToParts(new Date())
-      .find((p) => p.type === "timeZoneName")?.value ?? homeTz; // "Central European Time"
-}
+  const homeName = document.querySelector<HTMLElement>("[data-home-name]");
+
+  // The full name of a time zone: "Central European Standard Time", "Pacific Daylight Time"
+  function zoneName(tz: string) {
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "long" })
+      .formatToParts(new Date(exactNow()))
+      .find((p) => p.type === "timeZoneName")?.value ?? tz;
+  }
 
   // ---------- Big clock ----------
   const big = document.querySelector<HTMLElement>("[data-big-clock]");
@@ -164,6 +165,7 @@ if (homeName) {
     bigTime.textContent = `${get("hour")}:${get("minute")}`;
     bigSec.textContent = `:${get("second")}`;
     bigPeriod.textContent = hour12 ? ` ${get("dayPeriod").toUpperCase()}` : "";
+    if (homeName) homeName.textContent = zoneName(homeTz);
   }
 
   // Update at the start of every exact second
