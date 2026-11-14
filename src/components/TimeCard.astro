@@ -1,17 +1,11 @@
 ---
 import Switch from "./Switch.astro";
-
-const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;   // "America/Argentina/Buenos_Aires"
-const city = tz.split("/").pop()!.replaceAll("_", " ");        // "Buenos Aires"
-
-const homeTown = { name: city, tz: tz };
 ---
 
 <section>
   <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
-    <p class="text-muted">It’s now in <strong  class="font-semibold text-fg">{homeTown.name}</strong>, your home city</p>
+    <p class="text-muted">Right now where you are:</p>
     <div data-big-clock
-      data-tz={homeTown.tz}
       class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
       <p data-big-time>
         --:--
@@ -132,6 +126,18 @@ const homeTown = { name: city, tz: tz };
 
   startSync(); // measure now, then every 15 minutes and when the tab comes back
 
+  // ---------- Home time zone ----------
+// Runs in the visitor's browser, so it's THEIR device's time zone (a VPN doesn't change it)
+const homeTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // "Europe/Prague"
+
+const homeName = document.querySelector<HTMLElement>("[data-home-name]");
+if (homeName) {
+  homeName.textContent =
+    new Intl.DateTimeFormat("en-GB", { timeZone: homeTz, timeZoneName: "longGeneric" })
+      .formatToParts(new Date())
+      .find((p) => p.type === "timeZoneName")?.value ?? homeTz; // "Central European Time"
+}
+
   // ---------- Big clock ----------
   const big = document.querySelector<HTMLElement>("[data-big-clock]");
   const bigTime = document.querySelector<HTMLElement>("[data-big-time]");
@@ -145,7 +151,7 @@ const homeTown = { name: city, tz: tz };
 
     // Ask for the time in the home city, split into separate pieces
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: big.dataset.tz,
+      timeZone: homeTz,
       hour: hour12 ? "numeric" : "2-digit",
       minute: "2-digit",
       second: "2-digit",
