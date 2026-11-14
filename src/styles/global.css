@@ -24,7 +24,9 @@
   --color-bg: #1C2230;
   --color-fg: #E8EBF2;
   --color-muted: #9AA3B8;
-  --color-card: #333B50;
+  --color-lab: #333B50;
+  --color-card: #252C3D;
+  --color-card-hover: #2b3346;
 }
 
 @layer base {
@@ -39,6 +41,10 @@
   margin-inline: auto;
   padding-inline: calc(var(--spacing) * 4);
   @variant md { padding-inline: calc(var(--spacing) * 8); }
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: clip;
 }
 
 @utility text-h1 {                 /* h1: page titles on inner pages */
@@ -58,6 +64,21 @@
   text-wrap: pretty;
   margin-top: calc(var(--spacing) * 6);
   @variant md { font-size: var(--text-xl); }
+}
+
+@utility text-title {              /* small headings: principles, cards */
+  font-size: var(--text-2xl);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+  @variant lg { font-size: var(--text-3xl); }
+}
+
+@utility section-space {           /* space above every section */
+  margin-top: calc(var(--spacing) * 20);        /* 80px phone */
+  @variant md {
+    margin-top: calc(var(--spacing) * 30);      /* 120px tablet and up */
+  }
 }
 
 ::selection {
