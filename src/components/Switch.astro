@@ -1,0 +1,46 @@
+---
+interface Props {
+  name: string;          // how scripts find this switch, e.g. "awake"
+  label: string;
+  description?: string;
+  descriptionOn?: string;   // shown when ON (falls back to `description`)
+  checked?: boolean;     // starts on?
+  hidden?: boolean;      // start hidden, until we know the browser supports it
+}
+
+const { name, label, description, descriptionOn, checked = false, hidden = false } = Astro.props;
+const id = `switch-${name}`;
+---
+
+<div data-switch-row={name} hidden={hidden} class="group/row flex items-center gap-3.5 mt-2">
+  <button
+    type="button"
+    role="switch"
+    aria-checked={checked ? "true" : "false"}
+    aria-labelledby={`${id}-label`}
+    aria-describedby={`${id}-text`}
+    data-switch={name}
+    class="group relative h-7.5 w-13 shrink-0 rounded-full bg-lab transition-colors aria-checked:bg-logo-neg"
+  >
+    <span class="absolute top-0.75 left-0.75 size-6 rounded-full bg-fg transition-transform group-aria-checked:translate-x-5.5"></span>
+  </button>
+  <div>
+    <p id={`${id}-label`} class="font-semibold">{label}</p>
+    <div id={`${id}-text`} aria-live="polite" class="text-sm text-muted">
+      {description && <p class="group-has-aria-checked/row:hidden">{description}</p>}
+      {descriptionOn && <p class="hidden group-has-aria-checked/row:block">{descriptionOn}</p>}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Runs once for ALL switches on the page (Astro includes a component's script only once)
+  document.querySelectorAll<HTMLButtonElement>("[data-switch]").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const on = btn.getAttribute("aria-checked") !== "true";
+      btn.setAttribute("aria-checked", String(on));
+      // announce the change, so feature scripts can react
+      btn.dispatchEvent(new CustomEvent("switch-change", { detail: on }));
+    });
+  });
+</script>

@@ -27,6 +27,7 @@
   --color-lab: #333B50;
   --color-card: #252C3D;
   --color-card-hover: #2b3346;
+  --color-logo-neg: #9DB4E6;
 }
 
 @layer base {
@@ -81,7 +82,20 @@
   }
 }
 
+@utility text-page-heading {               /* homepage headline (half-width column) */
+  font-size: 2.75rem;
+  line-height: 1.02;
+  letter-spacing: -0.035em;
+  font-weight: 600;
+  text-wrap: balance;
+  color: var(--color-fg);
+  @variant md { font-size: var(--text-5xl); }
+  @variant lg { font-size: var(--text-6xl); }
+}
+
 ::selection {
   background-color: var(--color-fg);
   color: var(--color-bg);
 }
+
+@custom-variant clock-sans (&:where([data-clock-font="sans"] *));

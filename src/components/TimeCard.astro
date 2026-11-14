@@ -1,0 +1,100 @@
+---
+import Switch from "./Switch.astro";
+
+const homeTown = []
+---
+
+<section>
+  <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
+    <p class="text-muted">It’s now in <strong style="color: #E8EBF2; font-weight: 600">Oaxaca</strong>, your home city</p>
+    <div class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
+      <p>
+        19:58
+      </p>
+      <p class="text-muted text-[0.32em]">
+        :32
+      </p>
+    </div>
+
+    <hr class="text-lab">   
+    
+  </div>
+</section>
+
+<div class="mt-5 px-7 py-4 md:px-5 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+  <Switch name="awake" label="Keep screen awake" description="Your screen won’t dim or lock while this tab is open." descriptionOn="Screen stays on. Switch tabs and it pauses; come back and it’s on again." hidden />
+  <Switch name="h12" label="12-hour clock" description="Show 2:30 PM instead of 14:30." descriptionOn="Times showing as 2:30 PM." />
+  <Switch name="sans" label="Plain numbers" description="Swap the typewriter digits for a cleaner font." descriptionOn="Showing time in a sans-serif font."/>
+  <Switch name="fullscreen" label="Full screen" description="Press Esc to leave." hidden />
+</div>
+
+<script>
+  import { onSwitch, setSwitch, showSwitch } from "../scripts/switches";
+
+  const root = document.documentElement; // the <html> element
+
+  // --- 1. Keep screen awake ---
+  if ("wakeLock" in navigator) {
+    showSwitch("awake");
+    let lock: WakeLockSentinel | null = null;
+    let wanted = false;
+
+    const turnOn = async () => {
+      try {
+        lock = await navigator.wakeLock.request("screen");
+        lock.addEventListener("release", () => (lock = null));
+      } catch {
+        wanted = false;
+        setSwitch("awake", false);
+      }
+    };
+
+    onSwitch("awake", async (on) => {
+      wanted = on;
+      if (on) await turnOn();
+      else { await lock?.release(); lock = null; }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (wanted && document.visibilityState === "visible" && !lock) turnOn();
+    });
+  }
+
+  // --- 2 & 3. 12-hour clock and plain numbers: saved on <html>, remembered next visit ---
+  const remember = (key: string, on: boolean) => {
+    try { localStorage.setItem(key, String(on)); } catch {}
+  };
+  const recall = (key: string) => {
+    try { return localStorage.getItem(key) === "true"; } catch { return false; }
+  };
+
+  const h12 = recall("clock-h12");
+  root.dataset.hour12 = String(h12);
+  setSwitch("h12", h12);
+  onSwitch("h12", (on) => {
+    root.dataset.hour12 = String(on);
+    remember("clock-h12", on);
+    window.dispatchEvent(new Event("clock-format")); // tell the clocks to redraw now
+  });
+
+  const sans = recall("clock-sans");
+  root.dataset.clockFont = sans ? "sans" : "mono";
+  setSwitch("sans", sans);
+  onSwitch("sans", (on) => {
+    root.dataset.clockFont = on ? "sans" : "mono";
+    remember("clock-sans", on);
+  });
+
+  // --- 4. Full screen ---
+  if (document.fullscreenEnabled) {
+    showSwitch("fullscreen");
+    onSwitch("fullscreen", (on) => {
+      if (on) root.requestFullscreen();
+      else document.exitFullscreen();
+    });
+    // Esc also leaves full screen, so keep the switch in sync
+    document.addEventListener("fullscreenchange", () => {
+      setSwitch("fullscreen", !!document.fullscreenElement);
+    });
+  }
+</script>
