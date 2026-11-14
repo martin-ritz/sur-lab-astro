@@ -1,0 +1,16 @@
+---
+import Logo from '../assets/lab-logo.svg';
+import { Image } from 'astro:assets';
+import Arrow from '../assets/arrow-up.svg';
+---
+
+<header class="relative flex justify-between items-center pt-10 pb-20">
+  <a href="/" aria-label="Home" class="relative z-60">
+    <Logo class="h-10 w-auto" />
+  </a>
+
+  <a class="text-muted flex gap-2 hover:text-fg" href="https://www.madebysur.com" target="_blank">
+    <p>madebysur.com</p>
+    <Arrow />
+  </a>
+</header>
