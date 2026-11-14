@@ -1,22 +1,31 @@
 ---
 import Switch from "./Switch.astro";
 
-const homeTown = []
+const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;   // "America/Argentina/Buenos_Aires"
+const city = tz.split("/").pop()!.replaceAll("_", " ");        // "Buenos Aires"
+
+const homeTown = { name: city, tz: tz };
 ---
 
 <section>
   <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
-    <p class="text-muted">It’s now in <strong style="color: #E8EBF2; font-weight: 600">Oaxaca</strong>, your home city</p>
-    <div class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
-      <p>
-        19:58
+    <p class="text-muted">It’s now in <strong  class="font-semibold text-fg">{homeTown.name}</strong>, your home city</p>
+    <div data-big-clock
+      data-tz={homeTown.tz}
+      class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
+      <p data-big-time>
+        --:--
       </p>
+      
       <p class="text-muted text-[0.32em]">
-        :32
+        <span data-big-sec>:--</span>
+        <span data-big-period></span>
       </p>
     </div>
 
-    <hr class="text-lab">   
+    <hr class="text-lab">
+
+    <p data-clock-accuracy class="mt-2 text-sm text-muted">Checking your clock…</p>
     
   </div>
 </section>
@@ -30,6 +39,7 @@ const homeTown = []
 
 <script>
   import { onSwitch, setSwitch, showSwitch } from "../scripts/switches";
+  import { exactNow, getOffset, startSync, everySecond } from "../scripts/exact-time";
 
   const root = document.documentElement; // the <html> element
 
@@ -97,4 +107,70 @@ const homeTown = []
       setSwitch("fullscreen", !!document.fullscreenElement);
     });
   }
+
+  // ---------- Exact time ----------
+  // The measuring lives in src/scripts/exact-time.ts (shared with the preview card).
+  // Here we only write the line under the clock.
+  const accuracyLine = document.querySelector<HTMLElement>("[data-clock-accuracy]");
+
+  function showAccuracy() {
+    if (!accuracyLine) return;
+    const offset = getOffset();
+    const seconds = Math.abs(offset) / 1000;
+    if (seconds < 0.1) {
+      accuracyLine.textContent = "Your device clock is exact.";
+    } else {
+      // offset > 0: the server is ahead, so the device is behind
+      const direction = offset > 0 ? "behind" : "ahead";
+      accuracyLine.textContent = `Your device clock is ${seconds.toFixed(1)} s ${direction}. This page shows the exact time.`;
+    }
+  }
+
+  window.addEventListener("clock-sync-failed", () => {
+    if (accuracyLine) accuracyLine.textContent = "Couldn’t check your clock, showing your device’s time.";
+  });
+
+  startSync(); // measure now, then every 15 minutes and when the tab comes back
+
+  // ---------- Big clock ----------
+  const big = document.querySelector<HTMLElement>("[data-big-clock]");
+  const bigTime = document.querySelector<HTMLElement>("[data-big-time]");
+  const bigSec = document.querySelector<HTMLElement>("[data-big-sec]");
+  const bigPeriod = document.querySelector<HTMLElement>("[data-big-period]");
+
+  function tickBig() {
+    if (!big || !bigTime || !bigSec || !bigPeriod) return;
+
+    const hour12 = root.dataset.hour12 === "true";
+
+    // Ask for the time in the home city, split into separate pieces
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: big.dataset.tz,
+      hour: hour12 ? "numeric" : "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: hour12 ? "h12" : "h23",
+    }).formatToParts(new Date(exactNow()));
+
+    // Turn the list of pieces into an easy lookup: get("hour") → "19"
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+
+    bigTime.textContent = `${get("hour")}:${get("minute")}`;
+    bigSec.textContent = `:${get("second")}`;
+    bigPeriod.textContent = hour12 ? ` ${get("dayPeriod").toUpperCase()}` : "";
+  }
+
+  // Update at the start of every exact second
+  everySecond(tickBig);
+
+  // After each measurement: update the line and show the corrected time right away
+  window.addEventListener("clock-synced", () => {
+    showAccuracy();
+    tickBig();
+  });
+
+  // Redraw immediately when the 12-hour switch is flipped
+  window.addEventListener("clock-format", tickBig);
+
+
 </script>

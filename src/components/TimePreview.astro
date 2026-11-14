@@ -11,25 +11,25 @@ const cities = [
   {cities.map((c) => (
     <div class="flex items-baseline justify-between border-b border-muted py-2" aria-hidden="true">
       <span class="text-muted">{c.name}</span>
-      <span data-tz={c.tz} class="font-mono text-2xl font-medium">--:--</span>
+      <span data-preview-tz={c.tz} class="font-mono text-2xl font-medium">--:--</span>
     </div>
   ))}
 </div>
 
 <script>
+  import { exactNow, startSync, everySecond } from "../scripts/exact-time";
+
   function tick() {
-    document.querySelectorAll<HTMLElement>("[data-tz]").forEach((el) => {
+    document.querySelectorAll<HTMLElement>("[data-preview-tz]").forEach((el) => {
       el.textContent = new Intl.DateTimeFormat("en-GB", {
-        timeZone: el.dataset.tz,
+        timeZone: el.dataset.previewTz,
         hour: "2-digit",
         minute: "2-digit",
-      }).format(new Date());
+      }).format(new Date(exactNow()));
     });
   }
 
-  tick();
-  setTimeout(() => {
-    tick();
-    setInterval(tick, 60_000);
-  }, 60_000 - (Date.now() % 60_000));
+  startSync();
+  everySecond(tick); // checks every second, so the minute flips exactly on time
+  window.addEventListener("clock-synced", tick);
 </script>
