@@ -15,4 +15,8 @@ Then open http://localhost:4321.
 ## License
 
 The code is MIT licensed, see [LICENSE](LICENSE).
-The SUR name and logo are not covered by the license.
+
+Not covered by the MIT license:
+
+- **The SUR and SUR Lab names and logos** (`src/assets/lab-logo.svg`, `public/favicon.svg`). Please don’t use them in your own projects.
+- **The fonts** in `public/fonts`: Archivo and JetBrains Mono, each under the [SIL Open Font License](https://openfontlicense.org).
