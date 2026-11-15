@@ -1,12 +1,19 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import TimeCard from '../components/TimeCard.astro';
+import CityList from '../components/CityList.astro';
 ---
 
-<Layout>
+<Layout
+  title="Time zones & world clock"
+  description="The exact time where you are, checked against an atomic-clock-synced server, in a big clock you can keep on screen. Free, no cookies, no sign-up."
+>
   <section>
     <h1 class="text-page-heading max-w-5xl pb-10">Time zones & world clock</h1>
   </section>
 
   <TimeCard />
+
+  <!-- Cities: only on localhost (pnpm dev) until they're finished, so the live site shows just the clock -->
+  {import.meta.env.DEV && <CityList />}
 </Layout>

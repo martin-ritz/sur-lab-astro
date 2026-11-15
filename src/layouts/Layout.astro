@@ -2,6 +2,20 @@
 import "../styles/global.css";
 import Header from '../components/Header.astro';
 import Footer from '../components/Footer.astro';
+
+interface Props {
+  title?: string;        // the page name, e.g. "Time zones & world clock" (leave out on the home page)
+  description: string;   // one or two sentences for Google and link previews, ideally under 160 characters
+}
+
+const { title, description } = Astro.props;
+
+const siteName = "SUR Lab";
+const fullTitle = title ? `${siteName} | ${title}` : siteName;
+
+// Full addresses, built from `site` in astro.config.mjs
+const canonical = new URL(Astro.url.pathname, Astro.site);
+const ogImage = new URL("/og.png", Astro.site);
 ---
 
 <html lang="en">
@@ -13,9 +27,25 @@ import Footer from '../components/Footer.astro';
 		<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
 		<link rel="manifest" href="/site.webmanifest" />
 		<meta name="theme-color" content="#1c2230" />
-		<meta name="viewport" content="width=device-width" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
 		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
+
+		<!-- SEO: what Google shows -->
+		<title>{fullTitle}</title>
+		<meta name="description" content={description} />
+		<link rel="canonical" href={canonical} />
+
+		<!-- Link previews (LinkedIn, WhatsApp, Slack, iMessage…) -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content={siteName} />
+		<meta property="og:title" content={fullTitle} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonical} />
+		<meta property="og:image" content={ogImage} />
+		<meta property="og:image:width" content="1200" />
+		<meta property="og:image:height" content="630" />
+		<meta property="og:image:alt" content="SUR Lab: small tools for working across borders." />
+		<meta name="twitter:card" content="summary_large_image" />
 	</head>
 	<body>
 		<div class="page-container">

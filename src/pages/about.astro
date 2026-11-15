@@ -28,7 +28,10 @@ const message = lines[0]?.startsWith("Merge")
 const sha = import.meta.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
 ---
 
-<Layout>
+<Layout
+  title="About"
+  description="SUR Lab is a set of free tools by the web studio SUR. No cookies, no tracking, no sign-up, and the code is open source under the MIT license."
+>
 	<h1 class="text-h1">No cookies. No tracking. Just tools.</h1>
 	<h2 class="text-h2 max-w-xl md:mt-8">Lab is a small collection of free tools by SUR, a web studio. We built them because we kept needing them while working with clients in other time zones and currencies. Use them as much as you like.</h2>
 
