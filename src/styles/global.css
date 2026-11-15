@@ -99,3 +99,12 @@
 }
 
 @custom-variant clock-sans (&:where([data-clock-font="sans"] *));
+
+/* Clock mode: styles that only apply while the clock card is full screen */
+@custom-variant clock-mode (&:where(:fullscreen, :fullscreen *));
+
+/* The big clock's size: fits the card normally, much bigger in clock mode */
+@utility text-clock {
+  font-size: clamp(5rem, 16vw, 11.5rem);
+  @variant clock-mode { font-size: 22vw; }
+}

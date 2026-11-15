@@ -3,24 +3,23 @@ import Switch from "./Switch.astro";
 ---
 
 <section>
-  <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
+  <div data-clock-card class="relative rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10 clock-mode:flex clock-mode:flex-col clock-mode:items-center clock-mode:justify-center clock-mode:rounded-none clock-mode:bg-bg">
     <p class="text-muted">Right now where you are, <strong data-home-name class="font-semibold text-fg"></strong></p>
     <div data-big-clock
-      class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
-      <p data-big-time>
-        --:--
-      </p>
-      
+      class="flex items-baseline font-mono text-clock font-semibold clock-sans:font-sans">
+      <p data-big-time>--:--</p>
       <p class="text-muted text-[0.32em]">
         <span data-big-sec>:--</span>
         <span data-big-period></span>
       </p>
     </div>
 
-    <hr class="text-lab">
+    <hr class="text-lab clock-mode:hidden">
+    <p data-clock-accuracy class="mt-2 text-sm text-muted clock-mode:hidden">Checking your clock…</p>
 
-    <p data-clock-accuracy class="mt-2 text-sm text-muted">Checking your clock…</p>
-    
+    <button type="button" data-exit-fullscreen class="hidden clock-mode:block absolute top-6 right-6 rounded-full bg-card px-4 py-2 text-sm text-muted hover:text-fg">
+      Exit: Esc
+    </button>
   </div>
 </section>
 
@@ -28,7 +27,7 @@ import Switch from "./Switch.astro";
   <Switch name="awake" label="Keep screen awake" description="Your screen won’t dim or lock while this tab is open." descriptionOn="Screen stays on. Switch tabs and it pauses; come back and it’s on again." hidden />
   <Switch name="h12" label="12-hour clock" description="Show 2:30 PM instead of 14:30." descriptionOn="Times showing as 2:30 PM." />
   <Switch name="sans" label="Plain numbers" description="Swap the typewriter digits for a cleaner font." descriptionOn="Showing time in a sans-serif font."/>
-  <Switch name="fullscreen" label="Full screen" description="Press Esc to leave." hidden />
+  <Switch name="fullscreen" label="Clock mode" description="Show only the clock, full screen. Your screen stays on." hidden />
 </div>
 
 <script>
@@ -37,11 +36,13 @@ import Switch from "./Switch.astro";
 
   const root = document.documentElement; // the <html> element
 
-  // --- 1. Keep screen awake ---
+    // --- 1. Keep screen awake ---
+  // Awake when the switch is on OR the clock is in clock mode (full screen)
   if ("wakeLock" in navigator) {
     showSwitch("awake");
     let lock: WakeLockSentinel | null = null;
-    let wanted = false;
+    let wanted = false;    // the "Keep screen awake" switch
+    let clockMode = false; // the clock card is full screen
 
     const turnOn = async () => {
       try {
@@ -53,14 +54,23 @@ import Switch from "./Switch.astro";
       }
     };
 
-    onSwitch("awake", async (on) => {
-      wanted = on;
-      if (on) await turnOn();
-      else { await lock?.release(); lock = null; }
+    // Check whether the screen should stay awake right now, and act on it
+    const update = async () => {
+      const needed = wanted || clockMode;
+      if (needed && !lock) await turnOn();
+      if (!needed && lock) { await lock.release(); lock = null; }
+    };
+
+    onSwitch("awake", (on) => { wanted = on; update(); });
+
+    document.addEventListener("fullscreenchange", () => {
+      clockMode = !!document.fullscreenElement;
+      update();
     });
 
+    // The browser drops the lock when you switch tabs; take it back when you return
     document.addEventListener("visibilitychange", () => {
-      if (wanted && document.visibilityState === "visible" && !lock) turnOn();
+      if (document.visibilityState === "visible") update();
     });
   }
 
@@ -89,14 +99,22 @@ import Switch from "./Switch.astro";
     remember("clock-sans", on);
   });
 
-  // --- 4. Full screen ---
-  if (document.fullscreenEnabled) {
+  // --- 4. Clock mode (full screen, only the clock) ---
+  const clockCard = document.querySelector<HTMLElement>("[data-clock-card]");
+
+  if (document.fullscreenEnabled && clockCard) {
     showSwitch("fullscreen");
+
     onSwitch("fullscreen", (on) => {
-      if (on) root.requestFullscreen();
+      if (on) clockCard.requestFullscreen(); // only the card, not the whole page
       else document.exitFullscreen();
     });
-    // Esc also leaves full screen, so keep the switch in sync
+
+    document.querySelector("[data-exit-fullscreen]")?.addEventListener("click", () => {
+      document.exitFullscreen();
+    });
+
+    // Esc or the Exit button also leave clock mode, so keep the switch in sync
     document.addEventListener("fullscreenchange", () => {
       setSwitch("fullscreen", !!document.fullscreenElement);
     });

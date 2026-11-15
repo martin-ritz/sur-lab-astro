@@ -1,0 +1,23 @@
+---
+import CityCard from "./CityCard.astro";
+---
+
+<section class="mt-16" aria-labelledby="cities-heading">
+  <h2 id="cities-heading" class="text-title">Your cities</h2>
+
+  <!-- The script will put one card per city in here -->
+  <div data-city-list class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+
+  <!-- The blueprint for one card. The browser doesn't show it; the script copies it. -->
+  <template data-city-template>
+    <CityCard />
+  </template>
+
+  <!-- Preview while you build: one sample card, only on localhost (pnpm dev), never on the live site.
+       Delete this once the script draws real cards. -->
+  {import.meta.env.DEV && (
+    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <CityCard />
+    </div>
+  )}
+</section>
