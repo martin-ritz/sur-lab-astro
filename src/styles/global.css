@@ -94,7 +94,7 @@
 }
 
 ::selection {
-  background-color: #E8EBF2;
+  background-color: rgb(232 235 242 / 0.99); /* fg #E8EBF2, 99% so Safari doesn't fade it */
   color: #1C2230;
 }
 
