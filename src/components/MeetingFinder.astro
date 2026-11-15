@@ -1,0 +1,159 @@
+<section class="mt-16" aria-labelledby="meeting-heading">
+  <h2 id="meeting-heading" class="text-title">Find a time to meet</h2>
+  <p class="mt-2 max-w-2xl text-muted">
+    Blue blocks are working hours (9–18) in each city, lined up with <span data-meeting-ref>your</span> time.
+    Click an hour to see it on the cards above.
+  </p>
+
+  <!-- The grid is built by the script. On small screens it scrolls sideways inside this box. -->
+  <div class="mt-6 overflow-x-auto rounded-2xl bg-card p-4">
+    <div data-meeting-grid class="grid meeting-cols gap-0.5 text-xs"></div>
+  </div>
+
+  <p data-meeting-summary class="mt-4 font-medium"></p>
+</section>
+
+<script>
+  import { everySecond, exactNow } from "../scripts/exact-time";
+  import { findPlace, getIds, getHome, homeTz, deviceTz, getPickedMinute, pickMinute } from "../scripts/time-store";
+  import { zoneParts, formatTime, WORK_START, WORK_END } from "../scripts/time-utils";
+
+  const root = document.documentElement;
+  const grid = document.querySelector<HTMLElement>("[data-meeting-grid]")!;
+  const summary = document.querySelector<HTMLElement>("[data-meeting-summary]")!;
+  const refLabel = document.querySelector<HTMLElement>("[data-meeting-ref]")!;
+
+  // Small helper: create an element with classes and text in one line
+  function el(tag: string, className: string, text = "") {
+    const node = document.createElement(tag);
+    node.className = className;
+    node.textContent = text;
+    return node;
+  }
+
+  // Hour labels in the header: "09" or "9a"
+  const hourLabel = (h: number, hour12: boolean) =>
+    hour12 ? `${h % 12 || 12}${h < 12 ? "a" : "p"}` : String(h).padStart(2, "0");
+
+  function draw() {
+    const hour12 = root.dataset.hour12 === "true";
+    const tz = homeTz();
+    const home = getHome();
+    const now = exactNow();
+
+    // The moment each column starts: today at 00:00, 01:00 … 23:00 in home time
+    const p = zoneParts(tz, now);
+    const midnight = now - (p.hour * 3600 + p.minute * 60 + p.second) * 1000 - (now % 1000);
+    const columnStart = (h: number) => midnight + h * 3600000;
+
+    // The rows: your own time first (if home isn't one of the cities), then every city
+    const rows = getIds().map((id) => findPlace(id)!).map((place) => ({ name: place.name, tz: place.tz }));
+    if (!home) rows.unshift({ name: "You", tz: deviceTz });
+
+    refLabel.textContent = home ? `${home.name}’s` : "your";
+
+    // Is this row in working hours for the whole hour starting at `moment`?
+    const working = (rowTz: string, moment: number) => {
+      const local = zoneParts(rowTz, moment);
+      const minute = local.hour * 60 + local.minute;
+      return minute >= WORK_START * 60 && minute + 60 <= WORK_END * 60;
+    };
+
+    const cells: HTMLElement[] = [];
+    const picked = getPickedMinute();
+    const pickedHour = picked === null ? null : Math.floor(picked / 60);
+
+    // Header row: a label, then one button per hour
+    cells.push(el("span", "self-end pb-1 pr-2 text-muted", home ? `${home.name} time` : "Your time"));
+    for (let h = 0; h < 24; h++) {
+      const button = el("button", "min-h-8 rounded-md font-mono transition-colors hover:bg-card-hover aria-pressed:bg-logo-neg aria-pressed:text-bg", hourLabel(h, hour12));
+      button.setAttribute("type", "button");
+      button.dataset.hour = String(h);
+      button.setAttribute("aria-label", `Pick ${formatTime(tz, columnStart(h), hour12)}`);
+      button.setAttribute("aria-pressed", String(h === pickedHour));
+      if (h === p.hour) button.classList.add("text-logo-neg", "font-semibold"); // the current hour
+      cells.push(button);
+    }
+
+    // One row per city: its name, then its local hour in each column
+    for (const row of rows) {
+      cells.push(el("span", "truncate py-1.5 pr-2 font-medium text-sm", row.name));
+      for (let h = 0; h < 24; h++) {
+        const moment = columnStart(h);
+        const local = zoneParts(row.tz, moment);
+        const isWork = working(row.tz, moment);
+        const label = local.minute ? `${local.hour}:${String(local.minute).padStart(2, "0")}` : String(local.hour);
+        cells.push(el("span", `grid place-items-center rounded-sm py-1.5 font-mono ${isWork ? "bg-status-work text-status-work-fg" : "bg-bg text-muted"}`, label));
+      }
+    }
+
+    // The "Everyone" row: a dot where every row is working
+    const everyone: boolean[] = [];
+    cells.push(el("span", "py-1.5 pr-2 font-semibold text-sm", "Everyone"));
+    for (let h = 0; h < 24; h++) {
+      const all = rows.length > 0 && rows.every((row) => working(row.tz, columnStart(h)));
+      everyone.push(all);
+      cells.push(el("span", `grid place-items-center py-1.5 ${all ? "text-logo-neg" : "text-transparent"}`, "●"));
+    }
+
+    grid.replaceChildren(...cells);
+    summary.textContent = describe(everyone, rows, columnStart, tz, hour12, working);
+  }
+
+  // The sentence under the grid
+  function describe(
+    everyone: boolean[],
+    rows: { tz: string }[],
+    columnStart: (h: number) => number,
+    tz: string,
+    hour12: boolean,
+    working: (tz: string, moment: number) => boolean,
+  ): string {
+    if (rows.length < 2) return "Add another city to find a time that works for everyone.";
+    const time = (h: number) => formatTime(tz, columnStart(h % 24), hour12);
+    const where = getHome() ? `${getHome()!.name} time` : "your time";
+
+    // Find runs of hours that work for everyone: [start, end)
+    const runs: [number, number][] = [];
+    for (let h = 0; h < 24; h++) {
+      if (!everyone[h]) continue;
+      if (runs.length && runs[runs.length - 1][1] === h) runs[runs.length - 1][1] = h + 1;
+      else runs.push([h, h + 1]);
+    }
+    if (runs.length) {
+      return `Everyone is in working hours ${runs.map(([a, b]) => `${time(a)}–${time(b)}`).join(" and ")} ${where}.`;
+    }
+
+    // No overlap: find the hour where the most cities work
+    let best = 0, bestCount = -1;
+    for (let h = 0; h < 24; h++) {
+      const count = rows.filter((row) => working(row.tz, columnStart(h))).length;
+      if (count > bestCount) { best = h; bestCount = count; }
+    }
+    return `No hour works for everyone. The closest is ${time(best)} ${where}, with ${bestCount} of ${rows.length} in working hours.`;
+  }
+
+  // Clicking an hour sets it on the slider and the cards
+  grid.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLElement>("[data-hour]");
+    if (!button) return;
+    const hour = Number(button.dataset.hour);
+    pickMinute(getPickedMinute() === hour * 60 ? null : hour * 60); // click again to go back to now
+    // The grid was redrawn, so put the keyboard focus back on the same hour
+    grid.querySelector<HTMLElement>(`[data-hour="${hour}"]`)?.focus();
+  });
+
+  draw();
+  window.addEventListener("time-change", draw);
+  window.addEventListener("clock-format", draw);
+
+  // Redraw when a new minute starts (the current hour moves forward)
+  let lastMinute = -1;
+  everySecond(() => {
+    const minute = Math.floor(exactNow() / 60000);
+    if (minute !== lastMinute) {
+      lastMinute = minute;
+      draw();
+    }
+  });
+</script>
