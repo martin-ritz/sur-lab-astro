@@ -1,0 +1,87 @@
+---
+import Layout from '../layouts/Layout.astro';
+import FeatureCard from "../components/FeatureCard.astro";
+import NoCookies from "../assets/no-cookies.svg";
+import NoTracking from "../assets/no-tracking.svg";
+import NoSignup from "../assets/no-signup.svg";
+import OnDevice from "../assets/on-device.svg";
+import Arrow from "../assets/arrow-up.svg";
+
+const promises = [
+  { title: "No cookies", text: "Lab doesn’t set any cookies, so there’s no banner to click away.", Icon: NoCookies },
+  { title: "No tracking", text: "No analytics, no ads, no profiles. We don’t know who you are, and we don’t need to.", Icon: NoTracking },
+  { title: "No sign-up", text: "Every tool works straight away. There’s no account, no email and no password.", Icon: NoSignup },
+  { title: "Stays on your device", text: "What you type isn’t sent anywhere. Settings like the 12-hour clock are saved in your browser only.", Icon: OnDevice },
+];
+
+const repo = "https://github.com/martin-ritz/sur-lab-astro";
+
+// Which commit this page was built from. Vercel provides these on every deploy.
+const sha = import.meta.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
+const message = import.meta.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0] ?? "not deployed yet";
+---
+
+<Layout>
+	<h1 class="text-h1">No cookies. No tracking. Just tools.</h1>
+	<h2 class="text-h2 max-w-xl md:mt-8">Lab is a small collection of free tools by SUR, a web studio. We built them because we kept needing them while working with clients in other time zones and currencies. Use them as much as you like.</h2>
+
+  <div class="mt-30">
+    <h3 class="text-title">
+      What you can count on
+    </h3>
+
+    <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {promises.map((p) => <FeatureCard {...p} />)}
+    </div>
+  </div>
+
+  <hr class="text-lab mt-20">
+
+  <section class="mt-5 md:grid md:grid-cols-2 md:mt-16">
+    <h3 class="text-title">
+      What does reach the server
+    </h3>
+
+    <div class="mt-8 flex flex-col gap-4 md:mt-0">
+      <p class="text-muted">
+        <strong class="text-fg">The exact time. </strong>The time tool asks our server what time it is, so it can correct your device clock. The request carries no personal data. It’s checked again every 15 minutes while the page is open.
+      </p>
+
+      <p class="text-muted">
+        <strong class="text-fg">Server logs. </strong>Lab is hosted on Vercel. Like any website host, Vercel keeps standard logs, such as IP addresses, for a short time to keep the site running and safe. We don’t use them to follow anyone.
+      </p>
+
+      <p class="text-muted">
+        <strong class="text-fg">Fonts. </strong>They’re served from this site, not loaded from Google or anyone else.
+      </p>
+    </div>
+  </section>
+
+  <section class="mt-30 grid gap-10 rounded-2xl bg-card p-7 md:p-14 lg:grid-cols-2 lg:items-center lg:gap-16">
+    <div>
+      <h2 class="text-title">Don’t take our word for it. Read the code.</h2>
+      <p class="mt-4 max-w-lg text-muted">
+        Everything behind Lab is public on GitHub under the MIT license. Read it, learn from it, reuse it in your own projects. The SUR name and logo aren’t part of the license.
+      </p>
+
+      <div class="mt-7 flex flex-wrap gap-3">
+        <a href={repo} target="_blank" class="inline-flex min-h-12 items-center gap-2 rounded-full bg-logo-neg px-6 font-semibold text-bg transition-colors hover:bg-fg">
+          View source on GitHub
+          <Arrow aria-hidden="true" />
+        </a>
+        <a href={`${repo}/blob/main/LICENSE`} target="_blank" class="inline-flex min-h-12 items-center rounded-full bg-bg px-6 font-medium transition-colors hover:bg-card-hover">
+          Read the license
+        </a>
+      </div>
+    </div>
+
+    <!-- A little "terminal" showing the license. Decoration only, so screen readers skip it -->
+    <div aria-hidden="true" class="rounded-xl bg-bg px-7 py-6 font-mono text-sm leading-loose md:text-base">
+      <p class="text-muted">$ cat LICENSE</p>
+      <p class="mt-2">MIT License</p>
+      <p>(c) 2026 Caramelo Universe s.r.o.</p>
+      <p class="mt-4 text-muted">$ git log --oneline -1</p>
+      <p class="mt-2"><span class="text-logo-neg">{sha}</span> {message}</p>
+    </div>
+  </section>
+</Layout>

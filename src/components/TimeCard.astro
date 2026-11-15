@@ -1,0 +1,184 @@
+---
+import Switch from "./Switch.astro";
+---
+
+<section>
+  <div class="rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10">
+    <p class="text-muted">Right now where you are, <strong data-home-name class="font-semibold text-fg"></strong></p>
+    <div data-big-clock
+      class="flex items-baseline font-mono text-[clamp(5rem,16vw,11.5rem)] font-semibold clock-sans:font-sans">
+      <p data-big-time>
+        --:--
+      </p>
+      
+      <p class="text-muted text-[0.32em]">
+        <span data-big-sec>:--</span>
+        <span data-big-period></span>
+      </p>
+    </div>
+
+    <hr class="text-lab">
+
+    <p data-clock-accuracy class="mt-2 text-sm text-muted">Checking your clock…</p>
+    
+  </div>
+</section>
+
+<div class="mt-5 px-7 py-4 md:px-5 grid gap-x-8 gap-y-6 sm:grid-cols-2 lg:grid-cols-4">
+  <Switch name="awake" label="Keep screen awake" description="Your screen won’t dim or lock while this tab is open." descriptionOn="Screen stays on. Switch tabs and it pauses; come back and it’s on again." hidden />
+  <Switch name="h12" label="12-hour clock" description="Show 2:30 PM instead of 14:30." descriptionOn="Times showing as 2:30 PM." />
+  <Switch name="sans" label="Plain numbers" description="Swap the typewriter digits for a cleaner font." descriptionOn="Showing time in a sans-serif font."/>
+  <Switch name="fullscreen" label="Full screen" description="Press Esc to leave." hidden />
+</div>
+
+<script>
+  import { onSwitch, setSwitch, showSwitch } from "../scripts/switches";
+  import { exactNow, getOffset, startSync, everySecond } from "../scripts/exact-time";
+
+  const root = document.documentElement; // the <html> element
+
+  // --- 1. Keep screen awake ---
+  if ("wakeLock" in navigator) {
+    showSwitch("awake");
+    let lock: WakeLockSentinel | null = null;
+    let wanted = false;
+
+    const turnOn = async () => {
+      try {
+        lock = await navigator.wakeLock.request("screen");
+        lock.addEventListener("release", () => (lock = null));
+      } catch {
+        wanted = false;
+        setSwitch("awake", false);
+      }
+    };
+
+    onSwitch("awake", async (on) => {
+      wanted = on;
+      if (on) await turnOn();
+      else { await lock?.release(); lock = null; }
+    });
+
+    document.addEventListener("visibilitychange", () => {
+      if (wanted && document.visibilityState === "visible" && !lock) turnOn();
+    });
+  }
+
+  // --- 2 & 3. 12-hour clock and plain numbers: saved on <html>, remembered next visit ---
+  const remember = (key: string, on: boolean) => {
+    try { localStorage.setItem(key, String(on)); } catch {}
+  };
+  const recall = (key: string) => {
+    try { return localStorage.getItem(key) === "true"; } catch { return false; }
+  };
+
+  const h12 = recall("clock-h12");
+  root.dataset.hour12 = String(h12);
+  setSwitch("h12", h12);
+  onSwitch("h12", (on) => {
+    root.dataset.hour12 = String(on);
+    remember("clock-h12", on);
+    window.dispatchEvent(new Event("clock-format")); // tell the clocks to redraw now
+  });
+
+  const sans = recall("clock-sans");
+  root.dataset.clockFont = sans ? "sans" : "mono";
+  setSwitch("sans", sans);
+  onSwitch("sans", (on) => {
+    root.dataset.clockFont = on ? "sans" : "mono";
+    remember("clock-sans", on);
+  });
+
+  // --- 4. Full screen ---
+  if (document.fullscreenEnabled) {
+    showSwitch("fullscreen");
+    onSwitch("fullscreen", (on) => {
+      if (on) root.requestFullscreen();
+      else document.exitFullscreen();
+    });
+    // Esc also leaves full screen, so keep the switch in sync
+    document.addEventListener("fullscreenchange", () => {
+      setSwitch("fullscreen", !!document.fullscreenElement);
+    });
+  }
+
+  // ---------- Exact time ----------
+  // The measuring lives in src/scripts/exact-time.ts (shared with the preview card).
+  // Here we only write the line under the clock.
+  const accuracyLine = document.querySelector<HTMLElement>("[data-clock-accuracy]");
+
+  function showAccuracy() {
+    if (!accuracyLine) return;
+    const offset = getOffset();
+    const seconds = Math.abs(offset) / 1000;
+    if (seconds < 0.1) {
+      accuracyLine.textContent = "Your device clock is exact.";
+    } else {
+      // offset > 0: the server is ahead, so the device is behind
+      const direction = offset > 0 ? "behind" : "ahead";
+      accuracyLine.textContent = `Your device clock is ${seconds.toFixed(1)} s ${direction}. This page shows the exact time.`;
+    }
+  }
+
+  window.addEventListener("clock-sync-failed", () => {
+    if (accuracyLine) accuracyLine.textContent = "Couldn’t check your clock, showing your device’s time.";
+  });
+
+  startSync(); // measure now, then every 15 minutes and when the tab comes back
+
+  // ---------- Home time zone ----------
+  // Runs in the visitor's browser, so it's THEIR device's time zone (a VPN doesn't change it)
+  const homeTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // "Europe/Prague"
+
+  const homeName = document.querySelector<HTMLElement>("[data-home-name]");
+
+  // The full name of a time zone: "Central European Standard Time", "Pacific Daylight Time"
+  function zoneName(tz: string) {
+    return new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "long" })
+      .formatToParts(new Date(exactNow()))
+      .find((p) => p.type === "timeZoneName")?.value ?? tz;
+  }
+
+  // ---------- Big clock ----------
+  const big = document.querySelector<HTMLElement>("[data-big-clock]");
+  const bigTime = document.querySelector<HTMLElement>("[data-big-time]");
+  const bigSec = document.querySelector<HTMLElement>("[data-big-sec]");
+  const bigPeriod = document.querySelector<HTMLElement>("[data-big-period]");
+
+  function tickBig() {
+    if (!big || !bigTime || !bigSec || !bigPeriod) return;
+
+    const hour12 = root.dataset.hour12 === "true";
+
+    // Ask for the time in the home city, split into separate pieces
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: homeTz,
+      hour: hour12 ? "numeric" : "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hourCycle: hour12 ? "h12" : "h23",
+    }).formatToParts(new Date(exactNow()));
+
+    // Turn the list of pieces into an easy lookup: get("hour") → "19"
+    const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
+
+    bigTime.textContent = `${get("hour")}:${get("minute")}`;
+    bigSec.textContent = `:${get("second")}`;
+    bigPeriod.textContent = hour12 ? ` ${get("dayPeriod").toUpperCase()}` : "";
+    if (homeName) homeName.textContent = zoneName(homeTz);
+  }
+
+  // Update at the start of every exact second
+  everySecond(tickBig);
+
+  // After each measurement: update the line and show the corrected time right away
+  window.addEventListener("clock-synced", () => {
+    showAccuracy();
+    tickBig();
+  });
+
+  // Redraw immediately when the 12-hour switch is flipped
+  window.addEventListener("clock-format", tickBig);
+
+
+</script>
