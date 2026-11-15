@@ -3,10 +3,17 @@
 // CityList puts it inside a <template>: a blueprint the script copies once per city.
 // Everything marked data-city-… is filled in by the script; the text below is only
 // placeholder text so you can see the design while building.
+//
+// The script also switches these on the <article>, and the classes react to them:
+//   data-home    this is the home city: accent border, filled star
+//   data-night   it's night there: moon instead of sun
+//   data-work    working hours there: blue status chip
+//   data-asleep  probably asleep there: dimmed status chip
 import StarOutline from "../assets/star-outline.svg";
+import StarFilled from "../assets/star-filled.svg";
 ---
 
-<article data-city-card class="group flex flex-col rounded-2xl bg-card p-5">
+<article data-city-card class="group flex flex-col rounded-2xl border border-transparent bg-card p-5 data-home:border-logo-neg">
   <!-- Top row: name and country on the left, buttons on the right -->
   <div class="flex items-start justify-between gap-2">
     <div class="min-w-0">
@@ -17,8 +24,9 @@ import StarOutline from "../assets/star-outline.svg";
     </div>
 
     <div class="-mt-1.5 -mr-2 flex shrink-0">
-      <button type="button" data-city-home aria-label="Make Prague home" class="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-card-hover hover:text-fg">
-        <StarOutline class="size-4.5" aria-hidden="true" />
+      <button type="button" data-city-home aria-label="Make Prague home" aria-pressed="false" class="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-card-hover hover:text-fg group-data-home:text-logo-neg">
+        <StarOutline class="size-4.5 group-data-home:hidden" aria-hidden="true" />
+        <StarFilled class="hidden size-4.5 group-data-home:block" aria-hidden="true" />
       </button>
       <button type="button" data-city-remove aria-label="Remove Prague" class="grid size-9 place-items-center rounded-lg text-muted transition-colors hover:bg-card-hover hover:text-fg">
         <svg class="size-4" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M3.5 3.5l9 9M12.5 3.5l-9 9"></path></svg>
@@ -42,6 +50,6 @@ import StarOutline from "../assets/star-outline.svg";
   <!-- Bottom row: the day on the left, the status chip on the right -->
   <div class="mt-3.5 flex flex-wrap items-center justify-between gap-2 border-t border-lab pt-3 text-sm">
     <span data-city-day class="text-muted">Today</span>
-    <span data-city-status class="rounded-full bg-lab px-2.5 py-0.5">Working hours</span>
+    <span data-city-status class="rounded-full bg-lab px-2.5 py-0.5 text-chip-fg group-data-work:bg-status-work group-data-work:text-status-work-fg group-data-asleep:bg-status-asleep group-data-asleep:text-status-asleep-fg">Working hours</span>
   </div>
 </article>

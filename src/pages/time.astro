@@ -2,18 +2,32 @@
 import Layout from '../layouts/Layout.astro';
 import TimeCard from '../components/TimeCard.astro';
 import CityList from '../components/CityList.astro';
+import MeetingFinder from '../components/MeetingFinder.astro';
 ---
 
 <Layout
-  title="Time zones & world clock"
-  description="The exact time where you are, checked against an atomic-clock-synced server, in a big clock you can keep on screen. Free, no cookies, no sign-up."
+  title="World clock & time zone converter"
+  description="Exact time, a world clock for your cities, a time zone converter and a meeting planner that finds an hour that works for everyone. Free, no cookies."
 >
   <section>
-    <h1 class="text-page-heading max-w-5xl pb-10">Time zones & world clock</h1>
+    <h1 class="text-page-heading max-w-5xl pb-10">World clock & time zone converter</h1>
   </section>
 
   <TimeCard />
 
-  <!-- Cities: only on localhost (pnpm dev) until they're finished, so the live site shows just the clock -->
-  {import.meta.env.DEV && <CityList />}
+  <CityList />
+
+  <MeetingFinder />
+
+  <!-- Two short notes before the footer -->
+  <section class="mt-16 grid gap-8 border-t border-lab pt-8 md:grid-cols-2" aria-label="Good to know">
+    <div>
+      <h2 class="font-semibold">Daylight saving is handled.</h2>
+      <p class="mt-1.5 max-w-md text-muted">Each city follows its own clock changes, so “6 h behind” stays right in March and October, even when two countries switch on different dates.</p>
+    </div>
+    <div>
+      <h2 class="font-semibold">Your list stays on this device.</h2>
+      <p class="mt-1.5 max-w-md text-muted">Your cities are saved in your browser, not on our server. A shared link contains only the city names.</p>
+    </div>
+  </section>
 </Layout>

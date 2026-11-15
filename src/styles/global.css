@@ -28,11 +28,25 @@
   --color-card: #252C3D;
   --color-card-hover: #2b3346;
   --color-logo-neg: #9DB4E6;
+
+  /* Time tool: status chips on the city cards */
+  --color-chip-fg: #C8D2EA;          /* "Off work" text, on bg-lab */
+  --color-status-work: #3A4A6E;      /* "Working hours" */
+  --color-status-work-fg: #C8D6F5;
+  --color-status-asleep: #2A2F3E;    /* "Probably asleep" */
+  --color-status-asleep-fg: #8F98AD;
 }
 
 @layer base {
   body {
     @apply bg-bg text-fg;
+  }
+
+  /* Tailwind v4 gives buttons the normal arrow cursor. Show the hand on everything clickable. */
+  button:not(:disabled),
+  [role="button"]:not(:disabled),
+  input[type="range"] {
+    cursor: pointer;
   }
 }
 
@@ -107,4 +121,10 @@
 @utility text-clock {
   font-size: clamp(5rem, 16vw, 11.5rem);
   @variant clock-mode { font-size: 22vw; }
+}
+
+/* Meeting finder: a column for the city names, then 24 equal hour columns.
+   Each hour is at least 1.75rem wide; on small screens the grid scrolls sideways. */
+@utility meeting-cols {
+  grid-template-columns: 8rem repeat(24, minmax(1.75rem, 1fr));
 }

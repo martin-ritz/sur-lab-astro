@@ -3,21 +3,347 @@ import CityCard from "./CityCard.astro";
 ---
 
 <section class="mt-16" aria-labelledby="cities-heading">
-  <h2 id="cities-heading" class="text-title">Your cities</h2>
+  <!-- Heading and the two actions -->
+  <div class="flex flex-wrap items-end justify-between gap-x-8 gap-y-4">
+    <div>
+      <h2 id="cities-heading" class="text-title">Your cities</h2>
+      <p class="mt-2 max-w-xl text-muted">Star a city to make it home: the big clock and every card follow it. Star it again to go back to your own time.</p>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" data-copy-times class="min-h-11 rounded-full bg-card px-5 text-sm transition-colors hover:bg-card-hover disabled:opacity-50">Copy times for an email</button>
+      <button type="button" data-share class="min-h-11 rounded-full bg-card px-5 text-sm transition-colors hover:bg-card-hover disabled:opacity-50">Share this list</button>
+    </div>
+  </div>
 
-  <!-- The script will put one card per city in here -->
-  <div data-city-list class="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3"></div>
+  <!-- Only when someone opened a shared link -->
+  <div data-shared-banner hidden class="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-logo-neg px-5 py-4">
+    <p>You’re looking at a list someone shared with you.</p>
+    <div class="flex flex-wrap gap-2">
+      <button type="button" data-keep-shared class="min-h-11 rounded-full bg-logo-neg px-5 text-sm font-semibold text-bg transition-colors hover:bg-fg">Keep this list</button>
+      <button type="button" data-leave-shared class="min-h-11 rounded-full bg-card px-5 text-sm transition-colors hover:bg-card-hover">Back to my list</button>
+    </div>
+  </div>
+
+  <!-- Pick a time: drag to see every city at that moment -->
+  <div class="mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-2xl border border-lab px-5 py-4">
+    <label for="time-slider" data-slider-label class="font-medium">Pick a time</label>
+    <input id="time-slider" data-slider type="range" min="0" max="95" step="1" value="0" class="h-7 min-w-0 flex-1 basis-64 accent-logo-neg" />
+    <span data-slider-time class="min-w-24 text-right font-mono text-2xl font-medium clock-sans:font-sans">--:--</span>
+    <button type="button" data-back-to-now hidden class="min-h-10 rounded-full bg-lab px-4 text-sm transition-colors hover:bg-card-hover">Back to now</button>
+  </div>
+
+  <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <!-- The script puts one card per city in here. "contents" makes the cards part of the grid around it. -->
+    <div data-city-list class="contents"></div>
+
+    <!-- Add a city: always the last tile -->
+    <div class="flex flex-col gap-3 rounded-2xl border-2 border-dashed border-lab p-5">
+      <label for="city-search" class="text-xl font-semibold">Add a city</label>
+      <input id="city-search" data-city-search type="text" autocomplete="off" placeholder="Type a city, e.g. Lisbon" class="min-h-12 rounded-lg border border-lab bg-bg px-3.5 placeholder:text-muted focus:border-logo-neg focus:outline-none" />
+      <ul data-suggestions class="flex flex-col gap-1"></ul>
+      <p data-no-match hidden class="text-sm text-muted"></p>
+    </div>
+  </div>
 
   <!-- The blueprint for one card. The browser doesn't show it; the script copies it. -->
   <template data-city-template>
     <CityCard />
   </template>
 
-  <!-- Preview while you build: one sample card, only on localhost (pnpm dev), never on the live site.
-       Delete this once the script draws real cards. -->
-  {import.meta.env.DEV && (
-    <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      <CityCard />
-    </div>
-  )}
+  <!-- Short confirmation after copying ("Copied") -->
+  <p data-toast role="status" class="pointer-events-none fixed bottom-6 left-1/2 z-10 -translate-x-1/2 rounded-full bg-fg px-5 py-2.5 text-sm text-bg opacity-0 transition-opacity data-show:opacity-100"></p>
 </section>
+
+<script>
+  import { everySecond, exactNow } from "../scripts/exact-time";
+  import {
+    places, findPlace, getIds, getHome, homeTz, homeRef, isShared, getMoment, getPickedMinute,
+    addCity, removeCity, toggleHome, pickMinute, keepShared, leaveShared, shareUrl,
+  } from "../scripts/time-store";
+  import {
+    zoneParts, offsetMinutes, formatTime, describeDifference, dayLabel, shortDate, longDate,
+    zoneCode, workStatus, statusText, isNight, simplify,
+  } from "../scripts/time-utils";
+
+  const root = document.documentElement;
+  const hour12 = () => root.dataset.hour12 === "true";
+
+  const $ = <T extends HTMLElement = HTMLElement>(selector: string) => document.querySelector<T>(selector)!;
+
+  const template = $<HTMLTemplateElement>("[data-city-template]");
+  const list = $("[data-city-list]");
+
+  // =============== City cards ===============
+
+  // Build the cards: one copy of the template per city. Runs when the list or home changes.
+  function drawCards() {
+    const home = getHome();
+    const cards = getIds().map((id) => {
+      const place = findPlace(id)!;
+      const copy = template.content.cloneNode(true) as DocumentFragment;
+      const card = copy.querySelector<HTMLElement>("[data-city-card]")!;
+      const isHome = home?.id === place.id;
+
+      card.dataset.id = place.id;   // which city this card is (for the buttons)
+      card.dataset.tz = place.tz;   // which time zone it shows (for tickCards)
+      card.toggleAttribute("data-home", isHome);
+
+      copy.querySelector("[data-city-name]")!.textContent = place.name;
+      copy.querySelector("[data-city-country]")!.textContent = place.country;
+
+      const homeButton = copy.querySelector("[data-city-home]")!;
+      homeButton.setAttribute("aria-label", isHome ? `${place.name} is home. Use your own time again` : `Make ${place.name} home`);
+      homeButton.setAttribute("aria-pressed", String(isHome));
+      copy.querySelector("[data-city-remove]")!.setAttribute("aria-label", `Remove ${place.name}`);
+
+      return copy;
+    });
+
+    list.replaceChildren(...cards); // swap the old cards for the new ones in one go
+    tickCards();
+  }
+
+  // Update the text on every card: time, difference, day, status. Runs every second.
+  function tickCards() {
+    const moment = getMoment();
+    const refTz = homeTz();
+    const refOffset = offsetMinutes(refTz, moment);
+
+    list.querySelectorAll<HTMLElement>("[data-city-card]").forEach((card) => {
+      const tz = card.dataset.tz!;
+      const hour = zoneParts(tz, moment).hour;
+      const status = workStatus(hour);
+      const day = dayLabel(tz, refTz, moment);
+      const text = (selector: string, value: string) => (card.querySelector(selector)!.textContent = value);
+
+      text("[data-city-time]", formatTime(tz, moment, hour12()));
+      text("[data-city-zone]", zoneCode(tz, moment));
+      text("[data-city-diff]", card.hasAttribute("data-home")
+        ? "Your home city"
+        : describeDifference(offsetMinutes(tz, moment) - refOffset, homeRef()));
+      text("[data-city-day]", day === "Today" ? "Today" : `${day} · ${shortDate(tz, moment)}`);
+      text("[data-city-status]", statusText[status]);
+
+      // Switches the CSS reacts to (see the comment at the top of CityCard.astro)
+      card.toggleAttribute("data-night", isNight(hour));
+      card.toggleAttribute("data-work", status === "work");
+      card.toggleAttribute("data-asleep", status === "asleep");
+    });
+  }
+
+  // One click listener for all cards, instead of one per button ("event delegation").
+  // It still works for cards that are added later.
+  list.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest("button");
+    const card = button?.closest<HTMLElement>("[data-city-card]");
+    if (!button || !card) return;
+    const id = card.dataset.id!;
+
+    if (button.hasAttribute("data-city-home")) {
+      toggleHome(id);
+      // The cards were rebuilt, so put the keyboard focus back on the same star
+      list.querySelector<HTMLElement>(`[data-id="${id}"] [data-city-home]`)?.focus();
+    }
+    if (button.hasAttribute("data-city-remove")) {
+      removeCity(id);
+      search.focus(); // the button is gone; continue in the search field
+    }
+  });
+
+  // =============== Pick a time ===============
+
+  const slider = $<HTMLInputElement>("[data-slider]");
+  const sliderLabel = $("[data-slider-label]");
+  const sliderTime = $("[data-slider-time]");
+  const backToNow = $<HTMLButtonElement>("[data-back-to-now]");
+
+  // The slider has 96 steps: one per 15 minutes of the day, in home time
+  function tickSlider() {
+    const picked = getPickedMinute();
+    const home = getHome();
+    sliderLabel.textContent = home ? `Pick a time in ${home.name}` : "Pick a time (your time)";
+
+    if (picked === null) {
+      // Not picked: the slider follows the current time
+      const p = zoneParts(homeTz(), exactNow());
+      slider.value = String(Math.floor((p.hour * 60 + p.minute) / 15));
+    }
+    sliderTime.textContent = formatTime(homeTz(), getMoment(), hour12());
+    slider.setAttribute("aria-valuetext", sliderTime.textContent); // what screen readers announce
+    backToNow.hidden = picked === null;
+  }
+
+  slider.addEventListener("input", () => pickMinute(Number(slider.value) * 15));
+  backToNow.addEventListener("click", () => pickMinute(null));
+
+  // =============== Add a city ===============
+
+  const search = $<HTMLInputElement>("[data-city-search]");
+  const suggestions = $("[data-suggestions]");
+  const noMatch = $("[data-no-match]");
+
+  function drawSuggestions() {
+    const query = simplify(search.value);
+    if (!query) {
+      suggestions.replaceChildren();
+      noMatch.hidden = true;
+      return;
+    }
+
+    const taken = new Set(getIds());
+    // Score: 0 = a name starts with the query, 1 = contains it, 2 = the country matches. Lower is better.
+    const scored = places
+      .filter((p) => !taken.has(p.id))
+      .map((p) => {
+        const names = [p.name, ...(p.aliases ?? [])].map(simplify);
+        const score = names.some((n) => n.startsWith(query)) ? 0
+          : names.some((n) => n.includes(query)) ? 1
+          : simplify(p.country).includes(query) ? 2
+          : -1;
+        return { p, score };
+      })
+      .filter((x) => x.score >= 0)
+      .sort((a, b) => a.score - b.score)
+      .slice(0, 6);
+
+    const moment = exactNow();
+    suggestions.replaceChildren(...scored.map(({ p }) => {
+      const li = document.createElement("li");
+      const button = document.createElement("button");
+      button.type = "button";
+      button.dataset.id = p.id;
+      button.className = "flex min-h-10 w-full items-center justify-between gap-2 rounded-lg bg-card px-3 text-left text-sm transition-colors hover:bg-card-hover";
+
+      const name = document.createElement("span");
+      name.textContent = p.name;
+      const country = document.createElement("span");
+      country.className = "text-muted";
+      country.textContent = ` · ${p.country}`;
+      name.append(country);
+
+      const time = document.createElement("span");
+      time.className = "font-mono text-muted";
+      time.textContent = formatTime(p.tz, moment, hour12());
+
+      button.append(name, time);
+      li.append(button);
+      return li;
+    }));
+
+    noMatch.hidden = scored.length > 0;
+    noMatch.textContent = `No city called “${search.value.trim()}” in the list yet.`;
+  }
+
+  function add(id: string) {
+    addCity(id);
+    search.value = "";
+    drawSuggestions();
+    search.focus();
+  }
+
+  search.addEventListener("input", drawSuggestions);
+
+  // Enter adds the first suggestion
+  search.addEventListener("keydown", (event) => {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    const first = suggestions.querySelector<HTMLElement>("[data-id]");
+    if (first) add(first.dataset.id!);
+  });
+
+  suggestions.addEventListener("click", (event) => {
+    const button = (event.target as Element).closest<HTMLElement>("[data-id]");
+    if (button) add(button.dataset.id!);
+  });
+
+  // =============== Copy, share, toast ===============
+
+  const toastEl = $("[data-toast]");
+  let toastTimer: ReturnType<typeof setTimeout>;
+
+  // Show a short message at the bottom of the screen for 3 seconds
+  function toast(message: string) {
+    toastEl.textContent = message;
+    toastEl.setAttribute("data-show", "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toastEl.removeAttribute("data-show"), 3000);
+  }
+
+  async function copy(text: string, message: string) {
+    try {
+      await navigator.clipboard.writeText(text);
+      toast(message);
+    } catch {
+      toast("Couldn’t copy. Your browser blocked it.");
+    }
+  }
+
+  // The text for "Copy times for an email"
+  function timesText(): string {
+    const moment = getMoment();
+    const tz = homeTz();
+    const home = getHome();
+    const heading = `${longDate(tz, moment)}, ${formatTime(tz, moment, hour12())} ${home ? `in ${home.name}` : zoneCode(tz, moment)}`;
+
+    const lines = getIds().map((id) => {
+      const p = findPlace(id)!;
+      const day = dayLabel(p.tz, tz, moment);
+      return `${p.name}: ${formatTime(p.tz, moment, hour12())}${day === "Today" ? "" : ` (${shortDate(p.tz, moment)})`}`;
+    });
+
+    return [heading, "", ...lines].join("\n");
+  }
+
+  $("[data-copy-times]").addEventListener("click", () => copy(timesText(), "Times copied. Paste them into your email."));
+
+  $("[data-share]").addEventListener("click", async () => {
+    const url = shareUrl();
+    // Phones (and Safari on Mac) have a share menu; elsewhere, copy the link
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: "World clock", text: "Our cities and their times", url });
+      } catch {
+        // the visitor closed the share menu: nothing to do
+      }
+    } else {
+      copy(url, "Link copied. Anyone who opens it sees these cities.");
+    }
+  });
+
+  // =============== Shared link banner ===============
+
+  const banner = $("[data-shared-banner]");
+  $("[data-keep-shared]").addEventListener("click", () => {
+    keepShared();
+    toast("Saved. This is your list now.");
+  });
+  $("[data-leave-shared]").addEventListener("click", leaveShared);
+
+  // =============== Putting it together ===============
+
+  // Things that only change when the list, home or picked time change
+  function update() {
+    drawCards();
+    tickSlider();
+    banner.hidden = !isShared();
+    const empty = getIds().length === 0;
+    $<HTMLButtonElement>("[data-copy-times]").disabled = empty;
+    $<HTMLButtonElement>("[data-share]").disabled = empty;
+  }
+
+  update();
+  window.addEventListener("time-change", update);
+
+  // Every second: the times on the cards and the slider
+  everySecond(() => {
+    tickCards();
+    tickSlider();
+  });
+
+  // The 12-hour switch: redraw with the new format straight away
+  window.addEventListener("clock-format", () => {
+    tickCards();
+    tickSlider();
+    drawSuggestions();
+  });
+</script>

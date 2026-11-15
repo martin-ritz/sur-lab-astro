@@ -4,7 +4,7 @@ import Switch from "./Switch.astro";
 
 <section>
   <div data-clock-card class="relative rounded-2xl bg-card px-7 py-4 md:px-15 md:py-10 clock-mode:flex clock-mode:flex-col clock-mode:items-center clock-mode:justify-center clock-mode:rounded-none clock-mode:bg-bg">
-    <p class="text-muted">Right now where you are, <strong data-home-name class="font-semibold text-fg"></strong></p>
+    <p class="text-muted"><span data-home-place>Right now where you are</span>, <strong data-home-name class="font-semibold text-fg"></strong></p>
     <div data-big-clock
       class="flex items-baseline font-mono text-clock font-semibold clock-sans:font-sans">
       <p data-big-time>--:--</p>
@@ -13,9 +13,13 @@ import Switch from "./Switch.astro";
         <span data-big-period></span>
       </p>
     </div>
+    <p data-big-date class="mb-4 text-muted clock-mode:mb-0"></p>
 
     <hr class="text-lab clock-mode:hidden">
     <p data-clock-accuracy class="mt-2 text-sm text-muted clock-mode:hidden">Checking your clock…</p>
+
+    <!-- Clock mode only: your other cities in a row under the big clock (filled by the script) -->
+    <ul data-clock-strip class="hidden clock-mode:mt-16 clock-mode:flex clock-mode:flex-wrap clock-mode:justify-center clock-mode:gap-x-12 clock-mode:gap-y-6"></ul>
 
     <button type="button" data-exit-fullscreen class="hidden clock-mode:block absolute top-6 right-6 rounded-full bg-card px-4 py-2 text-sm text-muted hover:text-fg">
       Exit: Esc
@@ -33,6 +37,8 @@ import Switch from "./Switch.astro";
 <script>
   import { onSwitch, setSwitch, showSwitch } from "../scripts/switches";
   import { exactNow, getOffset, startSync, everySecond } from "../scripts/exact-time";
+  import { getHome, homeTz, homeRef, getIds, findPlace } from "../scripts/time-store";
+  import { zoneLongName, longDate, utcLabel, offsetMinutes, isoWeek, formatTime, describeDifference } from "../scripts/time-utils";
 
   const root = document.documentElement; // the <html> element
 
@@ -144,17 +150,41 @@ import Switch from "./Switch.astro";
 
   startSync(); // measure now, then every 15 minutes and when the tab comes back
 
-  // ---------- Home time zone ----------
-  // Runs in the visitor's browser, so it's THEIR device's time zone (a VPN doesn't change it)
-  const homeTz = Intl.DateTimeFormat().resolvedOptions().timeZone; // "Europe/Prague"
-
+  // ---------- Home ----------
+  // Home is the visitor's own time zone, unless they starred a city under "Your cities".
+  // That choice lives in src/scripts/time-store.ts; homeTz() always gives the right zone.
+  const homePlace = document.querySelector<HTMLElement>("[data-home-place]");
   const homeName = document.querySelector<HTMLElement>("[data-home-name]");
+  const bigDate = document.querySelector<HTMLElement>("[data-big-date]");
+  const strip = document.querySelector<HTMLElement>("[data-clock-strip]");
 
-  // The full name of a time zone: "Central European Standard Time", "Pacific Daylight Time"
-  function zoneName(tz: string) {
-    return new Intl.DateTimeFormat("en-US", { timeZone: tz, timeZoneName: "long" })
-      .formatToParts(new Date(exactNow()))
-      .find((p) => p.type === "timeZoneName")?.value ?? tz;
+  // Clock mode: one small clock per city (except home), rebuilt every second while full screen
+  function drawStrip(now: number, tz: string, hour12: boolean) {
+    if (!strip) return;
+    const home = getHome();
+    const items = getIds()
+      .filter((id) => id !== home?.id)
+      .flatMap((id) => findPlace(id) ?? []) // skip ids that don't exist
+      .map((place) => {
+        const li = document.createElement("li");
+        li.className = "text-center";
+
+        const name = document.createElement("p");
+        name.className = "text-sm text-muted";
+        name.textContent = place.name;
+
+        const time = document.createElement("p");
+        time.className = "mt-1 font-mono text-4xl font-medium clock-sans:font-sans";
+        time.textContent = formatTime(place.tz, now, hour12);
+
+        const diff = document.createElement("p");
+        diff.className = "mt-1 text-sm text-muted";
+        diff.textContent = describeDifference(offsetMinutes(place.tz, now) - offsetMinutes(tz, now), homeRef());
+
+        li.append(name, time, diff);
+        return li;
+      });
+    strip.replaceChildren(...items);
   }
 
   // ---------- Big clock ----------
@@ -167,15 +197,18 @@ import Switch from "./Switch.astro";
     if (!big || !bigTime || !bigSec || !bigPeriod) return;
 
     const hour12 = root.dataset.hour12 === "true";
+    const tz = homeTz();
+    const now = exactNow();
+    const home = getHome();
 
-    // Ask for the time in the home city, split into separate pieces
+    // Ask for the time at home, split into separate pieces
     const parts = new Intl.DateTimeFormat("en-GB", {
-      timeZone: homeTz,
+      timeZone: tz,
       hour: hour12 ? "numeric" : "2-digit",
       minute: "2-digit",
       second: "2-digit",
       hourCycle: hour12 ? "h12" : "h23",
-    }).formatToParts(new Date(exactNow()));
+    }).formatToParts(now);
 
     // Turn the list of pieces into an easy lookup: get("hour") → "19"
     const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
@@ -183,7 +216,15 @@ import Switch from "./Switch.astro";
     bigTime.textContent = `${get("hour")}:${get("minute")}`;
     bigSec.textContent = `:${get("second")}`;
     bigPeriod.textContent = hour12 ? ` ${get("dayPeriod").toUpperCase()}` : "";
-    if (homeName) homeName.textContent = zoneName(homeTz);
+
+    // The line above the clock: "Right now where you are" or "Right now in Oaxaca", plus the zone name
+    if (homePlace) homePlace.textContent = home ? `Right now in ${home.name}` : "Right now where you are";
+    if (homeName) homeName.textContent = zoneLongName(tz, now);
+
+    // The line under the clock: "Sunday, 15 November 2026 · UTC+1 · Week 46"
+    if (bigDate) bigDate.textContent = `${longDate(tz, now)} · ${utcLabel(offsetMinutes(tz, now))} · Week ${isoWeek(tz, now)}`;
+
+    if (document.fullscreenElement) drawStrip(now, tz, hour12);
   }
 
   // Update at the start of every exact second
@@ -195,8 +236,10 @@ import Switch from "./Switch.astro";
     tickBig();
   });
 
-  // Redraw immediately when the 12-hour switch is flipped
+  // Redraw immediately when the 12-hour switch is flipped, or home / the city list changes
   window.addEventListener("clock-format", tickBig);
+  window.addEventListener("time-change", tickBig);
+  document.addEventListener("fullscreenchange", tickBig);
 
 
 </script>
