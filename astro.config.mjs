@@ -5,6 +5,8 @@ import tailwindcss from '@tailwindcss/vite';
 
 import vercel from '@astrojs/vercel';
 
+import sitemap from '@astrojs/sitemap';
+
 // https://astro.build/config
 export default defineConfig({
   site: 'https://lab.madebysur.com',
@@ -13,5 +15,7 @@ export default defineConfig({
     plugins: [tailwindcss()]
   },
 
-  adapter: vercel()
+  adapter: vercel(),
+  // The sitemap lists every page for search engines, except the 404 page
+  integrations: [sitemap({ filter: (page) => !page.includes('/404') })]
 });

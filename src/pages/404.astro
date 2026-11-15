@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+---
+
+<Layout
+  title="Page not found"
+  description="This page doesn’t exist. Head back to SUR Lab’s free tools for working across borders."
+>
+  <section class="max-w-3xl">
+    <p class="font-mono text-logo-neg">// 404</p>
+    <h1 class="text-h1 mt-5">This page doesn’t exist.</h1>
+    <p class="text-h2 max-w-xl">
+      Maybe the link is old, or there’s a typo in the address. The tools are still here.
+    </p>
+
+    <!-- The address the visitor tried. Filled in by the script, because the page is built once for every missing address. -->
+    <p class="mt-6 break-all font-mono text-sm text-muted" data-missing-path></p>
+
+    <div class="mt-10 flex flex-wrap gap-3">
+      <a href="/" class="inline-flex min-h-12 items-center rounded-full bg-logo-neg px-6 font-semibold text-bg transition-colors hover:bg-fg">
+        All tools
+      </a>
+      <a href="/time" class="inline-flex min-h-12 items-center rounded-full bg-card px-6 font-medium transition-colors hover:bg-card-hover">
+        World clock
+      </a>
+    </div>
+  </section>
+</Layout>
+
+<script>
+  const line = document.querySelector("[data-missing-path]");
+  if (line) line.textContent = `lab.madebysur.com${location.pathname} → not found`;
+</script>
