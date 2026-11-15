@@ -94,8 +94,8 @@
 }
 
 ::selection {
-  background-color: var(--color-fg);
-  color: var(--color-bg);
+  background-color: #E8EBF2;
+  color: #1C2230;
 }
 
 @custom-variant clock-sans (&:where([data-clock-font="sans"] *));
