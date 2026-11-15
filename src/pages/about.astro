@@ -17,8 +17,15 @@ const promises = [
 const repo = "https://github.com/martin-ritz/sur-lab-astro";
 
 // Which commit this page was built from. Vercel provides these on every deploy.
+// The commit message Vercel built from, split into lines (empty lines removed)
+const lines = (import.meta.env.VERCEL_GIT_COMMIT_MESSAGE ?? "").split("\n").filter(Boolean);
+
+// GitHub's merge commits start with "Merge pull request…": show the line after it instead
+const message = lines[0]?.startsWith("Merge")
+  ? lines[1] ?? lines[0]
+  : lines[0] ?? "not deployed yet";
+
 const sha = import.meta.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) ?? "local";
-const message = import.meta.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0] ?? "not deployed yet";
 ---
 
 <Layout>
@@ -82,6 +89,22 @@ const message = import.meta.env.VERCEL_GIT_COMMIT_MESSAGE?.split("\n")[0] ?? "no
       <p>(c) 2026 Caramelo Universe s.r.o.</p>
       <p class="mt-4 text-muted">$ git log --oneline -1</p>
       <p class="mt-2"><span class="text-logo-neg">{sha}</span> {message}</p>
+    </div>
+  </section>
+
+  <section class="mt-30 md:grid md:grid-cols-2">
+    <h3 class="text-title">
+      Made by SUR
+    </h3>
+
+    <div class="mt-8 flex flex-col gap-4 md:mt-0">
+      <p class="text-muted">
+        SUR is a web studio that designs and builds websites and apps for clients wherever they are. Lab is where we make the small things we wish existed.
+      </p>
+
+      <p class="text-muted">
+        Found a bug, or have an idea for a tool? <a class="text-fg underline underline-offset-4" href="https://www.madebysur.com/contact" target="_blank">Tell us</a>. And if you need a website or an app, <a class="text-fg underline underline-offset-4" href="https://www.madebysur.com" target="_blank">that’s what we do</a>.
+      </p>
     </div>
   </section>
 </Layout>
