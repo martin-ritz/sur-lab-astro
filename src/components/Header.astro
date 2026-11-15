@@ -2,6 +2,8 @@
 import Logo from '../assets/lab-logo.svg';
 import { Image } from 'astro:assets';
 import Arrow from '../assets/arrow-up.svg';
+import NavLink from './NavLink.astro';
+import { NAV_ITEMS } from '../data/navlink';
 ---
 
 <header class="relative flex justify-between items-center pt-10 pb-20">
@@ -10,8 +12,16 @@ import Arrow from '../assets/arrow-up.svg';
     <p class="bg-lab text-[#c8d2ea] py-1 px-2 rounded-md font-mono text-sm">lab_</p>
   </a>
 
-  <a class="text-muted flex gap-2 hover:text-fg" href="https://www.madebysur.com" target="_blank">
-    <p>madebysur.com</p>
-    <Arrow />
-  </a>
+  <nav class="flex gap-4 text-muted items-center">
+    <ul class="flex gap-4">
+      {NAV_ITEMS.map((item) => (
+        <li><NavLink href={item.href}>{item.name}</NavLink></li>
+      ))}
+    </ul>
+
+    <a class="text-muted flex gap-1 hover:text-fg" href="https://www.madebysur.com" target="_blank">
+      <p>madebysur.com</p>
+      <Arrow />
+    </a>
+  </nav>
 </header>

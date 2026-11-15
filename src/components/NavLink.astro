@@ -1,0 +1,22 @@
+---
+interface Props {
+  href: string;
+}
+
+const { href } = Astro.props;
+
+const path = Astro.url.pathname.replace(/\/$/, '') || '/';
+
+const isActive = path === href || path.startsWith(href + '/');
+---
+
+<a
+  href={href}
+  aria-current={isActive ? 'page' : undefined}
+  class:list={[
+    'block px-3 py-2 rounded-xl',
+    isActive ? 'text-fg underline underline-offset-4 decoration-logo-neg decoration-2' : 'hover:underline hover:underline-offset-4 hover:decoration-logo-neg hover:text-fg decoration-2',
+  ]}
+>
+  <slot />
+</a>
